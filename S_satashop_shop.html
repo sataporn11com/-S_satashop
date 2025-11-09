@@ -1,0 +1,250 @@
+
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>S.satashop — ร้านค้า</title>
+<style>
+  body{font-family:system-ui,Segoe UI,Roboto,Arial;margin:0;background:#f5f5f7;color:#111}
+  header{background:#ff6f00;color:white;padding:16px 20px;display:flex;justify-content:space-between;align-items:center}
+  .brand{font-weight:700;font-size:18px}
+  .wrap{max-width:980px;margin:18px auto;padding:0 16px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px}
+  .card{background:white;border-radius:10px;padding:12px;box-shadow:0 1px 4px rgba(0,0,0,0.08)}
+  .img{height:140px;border-radius:8px;background:linear-gradient(135deg,#ffe0b2,#fff3e0);display:flex;align-items:center;justify-content:center;color:#b36b00;font-weight:700}
+  .title{margin:10px 0 6px;font-weight:600}
+  .price{color:#ee4d2d;font-weight:700}
+  button{background:#ff6f00;color:white;border:0;padding:8px 12px;border-radius:8px;cursor:pointer}
+  .muted{color:#666;font-size:13px}
+  .top-actions{display:flex;gap:8px;align-items:center}
+  .admin-panel{background:#fffef2;padding:12px;border-radius:10px;margin-top:16px}
+  label{display:block;font-size:13px;margin-top:8px}
+  input,select{padding:8px;border-radius:8px;border:1px solid #ddd;width:100%;box-sizing:border-box}
+  table{width:100%;border-collapse:collapse;margin-top:10px}
+  th,td{padding:8px;border-bottom:1px solid #eee;text-align:left}
+  .small{font-size:13px}
+  footer{margin:30px 0;text-align:center;color:#888}
+  .badge{background:#fff;color:#ff6f00;border-radius:999px;padding:6px 10px;font-weight:700}
+  .cart-count{background:#ff6f00;color:white;padding:4px 8px;border-radius:999px;margin-left:6px;font-size:13px}
+  .controls{display:flex;gap:8px;flex-wrap:wrap}
+  .ok{background:#198754}
+  .danger{background:#dc3545}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">S.satashop</div>
+  <div class="top-actions">
+    <div id="welcome" class="muted">สวัสดี</div>
+    <button id="adminBtn" style="display:none">Admin</button>
+    <button id="logoutBtn">ออกจากระบบ</button>
+  </div>
+</header>
+
+<main class="wrap">
+  <section>
+    <h2>สินค้าแนะนำ</h2>
+    <div id="productGrid" class="grid"></div>
+  </section>
+
+  <section style="margin-top:18px">
+    <h3>ตะกร้าจำลอง</h3>
+    <div id="cartArea" class="card small">
+      ยังไม่มีสินค้าในตะกร้า
+    </div>
+  </section>
+
+  <section class="admin-panel" id="adminPanel" style="display:none">
+    <h3>แผงควบคุม (Admin)</h3>
+    <div class="small">เพิ่มสินค้าใหม่</div>
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <input id="newName" placeholder="ชื่อสินค้า" />
+      <input id="newPrice" placeholder="ราคา (บาท)" />
+      <button id="addProductBtn">เพิ่มสินค้า</button>
+    </div>
+    <div style="margin-top:12px">
+      <div class="small">รายการสั่งซื้อทั้งหมด</div>
+      <table id="ordersTable">
+        <thead><tr><th>เวลา</th><th>ผู้ซื้อ</th><th>สินค้า</th><th>ราคา</th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <div style="margin-top:8px" class="muted">ข้อมูลทั้งหมดถูกเก็บไว้ในเบราว์เซอร์คุณ (localStorage)</div>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button id="exportBtn">ส่งออก CSV</button>
+        <button id="clearBtn" class="danger">ลบข้อมูลทั้งหมด</button>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  เวอร์ชันเว็บจำลอง S.satashop — ไม่เชื่อมต่อระบบจ่ายเงินจริง
+</footer>
+
+<script>
+// --- Users & Login ---
+function loadUsers(){ return JSON.parse(localStorage.getItem('ss_users')||'[]'); }
+function saveUsers(users){ localStorage.setItem('ss_users',JSON.stringify(users)); }
+function loadLoggedIn(){ return localStorage.getItem('ss_logged_in'); }
+function logout(){ localStorage.removeItem('ss_logged_in'); location.href='S_satashop_login.html'; }
+
+document.getElementById('logoutBtn').onclick = logout;
+
+let users = loadUsers();
+let currentUser = loadLoggedIn();
+if(!currentUser){ alert('กรุณาเข้าสู่ระบบ'); location.href='S_satashop_login.html'; }
+const userObj = users.find(x=>x.username===currentUser);
+document.getElementById('welcome').innerText='สวัสดี, '+currentUser;
+if(userObj && userObj.role==='admin'){ document.getElementById('adminBtn').style.display='inline-block'; }
+
+document.getElementById('adminBtn').onclick = ()=>{
+  document.getElementById('adminPanel').style.display='block';
+  scrollTo(document.getElementById('adminPanel'));
+  renderOrders();
+};
+
+// --- Products ---
+const defaultProducts = [
+  {id:'p1',name:'เสื้อยืด S.sata',price:199,desc:'เสื้อผ้าคุณภาพดี',stock:20},
+  {id:'p2',name:'กระเป๋าผ้า Eco',price:249,desc:'กระเป๋าใส่ของเอนกประสงค์',stock:10},
+  {id:'p3',name:'แก้วน้ำเก็บความร้อน',price:299,desc:'เก็บความร้อน/เย็น',stock:8},
+  {id:'p4',name:'แผ่นรองเมาส์',price:149,desc:'ลายพิเศษ S.satashop',stock:15}
+];
+
+function loadProducts(){
+  const raw = localStorage.getItem('ss_products');
+  if(raw) return JSON.parse(raw);
+  localStorage.setItem('ss_products', JSON.stringify(defaultProducts));
+  return defaultProducts;
+}
+function saveProducts(products){ localStorage.setItem('ss_products', JSON.stringify(products)); }
+
+// --- Orders ---
+function loadOrders(){ return JSON.parse(localStorage.getItem('ss_orders')||'[]'); }
+function saveOrders(o){ localStorage.setItem('ss_orders', JSON.stringify(o)); }
+
+let products = loadProducts();
+let orders = loadOrders();
+let cart = [];
+
+// --- Render products ---
+const productGrid = document.getElementById('productGrid');
+const cartArea = document.getElementById('cartArea');
+const ordersBadge = document.getElementById('ordersTable')?.parentElement;
+
+function renderProducts(){
+  productGrid.innerHTML = '';
+  products.forEach(p=>{
+    const card = document.createElement('div'); card.className='card';
+    card.innerHTML = `<div class="img">รูป: ${p.name.split(' ')[0]}</div>
+      <div class="title">${p.name}</div>
+      <div class="muted small">${p.desc || ''}</div>
+      <div style="margin-top:8px;display:flex;justify-content:space-between;align-items:center">
+        <div><div class="price">${p.price} ฿</div><div class="muted small">คงเหลือ: ${p.stock}</div></div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <button onclick="openBuy('${p.id}')">ซื้อเลย</button>
+          <button onclick="addToCart('${p.id}')" style="background:#6c757d">เพิ่มลงตะกร้า</button>
+        </div>
+      </div>`;
+    productGrid.appendChild(card);
+  });
+}
+
+function addToCart(id){
+  const p = products.find(x=>x.id===id);
+  if(!p || p.stock<=0){ alert('สินค้าหมด'); return; }
+  const found = cart.find(c=>c.id===id);
+  if(found) found.qty++;
+  else cart.push({id:p.id,name:p.name,price:p.price,qty:1});
+  updateCartArea();
+}
+
+function updateCartArea(){
+  if(cart.length===0){ cartArea.innerText='ยังไม่มีสินค้าในตะกร้า'; return; }
+  cartArea.innerHTML='';
+  const tbl = document.createElement('table'); tbl.style.width='100%';
+  cart.forEach((c,idx)=>{
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${c.name}</td><td>${c.qty} ชิ้น</td><td class="price">${(c.price*c.qty)} ฿</td>
+      <td><button onclick="checkoutCartItem(${idx})">จ่าย</button></td>`;
+    tbl.appendChild(tr);
+  });
+  cartArea.appendChild(tbl);
+  const clr = document.createElement('div'); clr.style.marginTop='8px';
+  clr.innerHTML = '<button onclick="checkoutCart()">ชำระทั้งหมด</button> <button onclick="clearCart()" style="background:#6c757d">ล้างตะกร้า</button>';
+  cartArea.appendChild(clr);
+}
+
+function checkoutCartItem(idx){
+  const item = cart[idx];
+  const p = products.find(x=>x.id===item.id);
+  if(!p || p.stock < item.qty){ alert('สต็อกไม่พอ'); return; }
+  p.stock -= item.qty;
+  orders.push({time:(new Date()).toLocaleString('th-TH'),buyer:currentUser,product:item.name,price:item.price,qty:item.qty,subtotal:item.price*item.qty});
+  saveProducts(products); saveOrders(orders); renderOrders();
+  cart.splice(idx,1); updateCartArea();
+}
+
+function checkoutCart(){
+  if(cart.length===0){ alert('ตะกร้าว่าง'); return; }
+  for(const item of cart){
+    const p = products.find(x=>x.id===item.id);
+    if(!p || p.stock < item.qty){ alert('สต็อกไม่พอสำหรับ '+item.name); return; }
+  }
+  for(const item of cart){
+    const p = products.find(x=>x.id===item.id);
+    p.stock -= item.qty;
+    orders.push({time:(new Date()).toLocaleString('th-TH'),buyer:currentUser,product:item.name,price:item.price,qty:item.qty,subtotal:item.price*item.qty});
+  }
+  saveProducts(products); saveOrders(orders); renderProducts(); renderOrders();
+  cart = []; updateCartArea(); alert('ชำระเสร็จ (จำลอง)');
+}
+
+function clearCart(){ cart=[]; updateCartArea(); }
+
+// --- Modal ---
+function openBuy(id){ addToCart(id); updateCartArea(); alert('เพิ่มลงตะกร้าแล้ว'); }
+
+function renderOrders(){
+  if(!document.getElementById('ordersTable')) return;
+  const tbody = document.querySelector('#ordersTable tbody'); tbody.innerHTML='';
+  orders.forEach(o=>{
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td class="small">${o.time}</td><td>${o.buyer}</td><td>${o.product} x${o.qty}</td><td class="price">${o.subtotal} ฿</td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+// --- Admin add product ---
+document.getElementById('addProductBtn')?.addEventListener('click',()=>{
+  const name=document.getElementById('newName').value.trim();
+  const price=Number(document.getElementById('newPrice').value||0);
+  if(!name||price<=0){return alert('กรอกชื่อและราคาถูกต้อง');}
+  const id='p'+(Date.now().toString().slice(-6));
+  products.push({id,name,price,desc:'สินค้าใหม่',stock:50});
+  saveProducts(products); renderProducts();
+  document.getElementById('newName').value=''; document.getElementById('newPrice').value='';
+  alert('เพิ่มสินค้าเรียบร้อย');
+});
+
+document.getElementById('exportBtn')?.addEventListener('click',()=>{
+  if(orders.length===0){ alert('ไม่มีคำสั่งซื้อให้ส่งออก'); return; }
+  const header = ['time','buyer','product','price','qty','subtotal'];
+  const rows = orders.map(o=>[o.time,o.buyer,o.product,o.price,o.qty,o.subtotal]);
+  const csv = [header.join(','),...rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(','))].join('\n');
+  const blob = new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href=url; a.download='ss_orders.csv'; a.click();
+  URL.revokeObjectURL(url);
+});
+
+document.getElementById('clearBtn')?.addEventListener('click',()=>{
+  if(!confirm('ลบข้อมูลสินค้าและคำสั่งซื้อทั้งหมดจากเครื่องนี้เลย?')) return;
+  localStorage.removeItem('ss_products'); localStorage.removeItem('ss_orders'); products = loadProducts(); orders=[]; renderProducts(); renderOrders(); alert('ลบเรียบร้อย (ข้อมูลในเครื่อง)');
+});
+
+renderProducts(); renderOrders(); updateCartArea();
+</script>
+</body>
+</html>
